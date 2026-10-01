@@ -232,6 +232,17 @@
         // --- GESTIONE CREDENZIALI GITHUB ---
         const settingsModal = document.getElementById('settingsModal');
         
+        function cleanGistId(rawId) {
+            if (!rawId) return '';
+            let cleaned = rawId.trim();
+            if (cleaned.includes('/')) cleaned = cleaned.split('/').pop();
+            // Risolve il bug dell'ID incollato doppio per errore (se lungo 64 caratteri al posto di 32)
+            if (cleaned.length === 64 && cleaned.substring(0, 32) === cleaned.substring(32)) {
+                cleaned = cleaned.substring(0, 32);
+            }
+            return cleaned;
+        }
+
         function getCredentials() {
             return {
                 gistId: localStorage.getItem('kv_gist_id'),
@@ -252,7 +263,8 @@
 
         document.getElementById('settingsForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            localStorage.setItem('kv_gist_id', document.getElementById('gistId').value.trim());
+            const safeGistId = cleanGistId(document.getElementById('gistId').value);
+            localStorage.setItem('kv_gist_id', safeGistId);
             localStorage.setItem('kv_github_pat', document.getElementById('githubPat').value.trim());
             settingsModal.classList.remove('active');
             loadTopics();
@@ -270,12 +282,12 @@
             try {
                 statusText.textContent = 'Loading data from GitHub...';
                 const response = await fetch(`https://api.github.com/gists/${gistId}`, {
-                    headers: { 'Authorization': `Bearer ${pat}` }
+                    headers: { 'Authorization': `token ${pat}` }
                 });
                 
                 if (!response.ok) {
                     const errData = await response.json().catch(() => ({}));
-                    throw new Error(`GitHub API Error (${response.status}): ${errData.message || 'Controlla ID o Token'}`);
+                    throw new Error(`GitHub Error (${response.status}): ${errData.message || 'Verifica il Gist ID e il Token'}`);
                 }
                 
                 const gist = await response.json();
@@ -297,12 +309,12 @@
         // --- SALVATAGGIO SU GITHUB GIST ---
         async function saveToGist(newDataArray) {
             const { gistId, pat } = getCredentials();
-            if (!gistId || !pat) throw new Error('Credenziali mancanti');
+            if (!gistId || !pat) throw new Error('Credenziali mancanti. Apri Database Setup.');
 
             const response = await fetch(`https://api.github.com/gists/${gistId}`, {
                 method: 'PATCH',
                 headers: {
-                    'Authorization': `Bearer ${pat}`,
+                    'Authorization': `token ${pat}`,
                     'Accept': 'application/vnd.github.v3+json',
                     'Content-Type': 'application/json'
                 },
@@ -317,7 +329,7 @@
 
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
-                throw new Error(`GitHub API Error (${response.status}): ${errData.message || 'Errore sconosciuto'}`);
+                throw new Error(`GitHub API Error (${response.status}): ${errData.message || 'Controlla i permessi del Token'}`);
             }
         }
 
@@ -352,7 +364,7 @@
             }
         });
 
-        // --- IMPORT Dati JSON Sicuro ---
+        // --- IMPORT Dati JSON ---
         document.getElementById('importBtn').addEventListener('click', async () => {
             const jsonStr = document.getElementById('importJsonArea').value.trim();
             if (!jsonStr) {
@@ -369,7 +381,7 @@
                 topics = dataToImport;
                 
                 alert("Importazione completata con successo!");
-                document.getElementById('importJsonArea').value = ''; // Pulisce il campo
+                document.getElementById('importJsonArea').value = ''; 
                 renderFieldFilters();
                 renderTopics();
             } catch (err) {
