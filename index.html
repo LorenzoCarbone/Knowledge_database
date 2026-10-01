@@ -51,9 +51,12 @@
         input[type="text"], input[type="password"] { width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-md); font-family: inherit; font-size: 0.875rem; transition: var(--transition); }
         input[type="text"]:focus, input[type="password"]:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
         
+        textarea.import-area { width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-md); font-family: monospace; font-size: 0.75rem; resize: vertical; margin-bottom: 0.5rem; }
+        textarea.import-area:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+
         .btn-primary { width: 100%; background: var(--primary); color: white; border: none; padding: 0.75rem; border-radius: var(--radius-md); font-weight: 500; cursor: pointer; transition: var(--transition); }
         .btn-primary:hover { background: var(--primary-hover); }
-        .btn-secondary { width: 100%; background: var(--surface); color: var(--text-main); border: 1px solid var(--border); padding: 0.5rem; border-radius: var(--radius-md); font-weight: 500; cursor: pointer; transition: var(--transition); margin-top: 1rem; font-size: 0.875rem; }
+        .btn-secondary { width: 100%; background: var(--surface); color: var(--text-main); border: 1px solid var(--border); padding: 0.5rem; border-radius: var(--radius-md); font-weight: 500; cursor: pointer; transition: var(--transition); font-size: 0.875rem; }
         .btn-secondary:hover { background: var(--bg); }
 
         .mobile-controls { display: none; width: 100%; margin-bottom: 1rem; }
@@ -159,7 +162,12 @@
                         </div>
                         <button type="submit" class="btn-primary">Add Topic</button>
                     </form>
-                    <button id="importBtn" class="btn-secondary">Import JSON Data</button>
+                    
+                    <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+                        <label class="input-label" for="importJsonArea">Import JSON Data</label>
+                        <textarea id="importJsonArea" class="import-area" rows="4" placeholder="Incolla l'array JSON qui..."></textarea>
+                        <button id="importBtn" class="btn-secondary">Import Data</button>
+                    </div>
                 </div>
             </aside>
             
@@ -203,7 +211,7 @@
                     <input type="password" id="githubPat" placeholder="ghp_..." required>
                 </div>
                 <button type="submit" class="btn-primary">Save & Connect</button>
-                <button type="button" class="btn-secondary" id="closeSettingsBtn">Close</button>
+                <button type="button" class="btn-secondary" style="margin-top: 0.5rem;" id="closeSettingsBtn">Close</button>
             </form>
         </div>
     </div>
@@ -262,12 +270,19 @@
             try {
                 statusText.textContent = 'Loading data from GitHub...';
                 const response = await fetch(`https://api.github.com/gists/${gistId}`, {
-                    headers: { 'Authorization': `token ${pat}` }
+                    headers: { 'Authorization': `Bearer ${pat}` }
                 });
                 
-                if (!response.ok) throw new Error('Failed to fetch. Check your Token and Gist ID.');
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(`GitHub API Error (${response.status}): ${errData.message || 'Controlla ID o Token'}`);
+                }
                 
                 const gist = await response.json();
+                if (!gist.files['data.json']) {
+                    throw new Error("Il file dentro il Gist non si chiama 'data.json'");
+                }
+
                 const content = gist.files['data.json'].content;
                 topics = JSON.parse(content || '[]');
                 
@@ -282,12 +297,12 @@
         // --- SALVATAGGIO SU GITHUB GIST ---
         async function saveToGist(newDataArray) {
             const { gistId, pat } = getCredentials();
-            if (!gistId || !pat) throw new Error('Missing credentials');
+            if (!gistId || !pat) throw new Error('Credenziali mancanti');
 
             const response = await fetch(`https://api.github.com/gists/${gistId}`, {
                 method: 'PATCH',
                 headers: {
-                    'Authorization': `token ${pat}`,
+                    'Authorization': `Bearer ${pat}`,
                     'Accept': 'application/vnd.github.v3+json',
                     'Content-Type': 'application/json'
                 },
@@ -300,7 +315,10 @@
                 })
             });
 
-            if (!response.ok) throw new Error('Failed to save to GitHub');
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(`GitHub API Error (${response.status}): ${errData.message || 'Errore sconosciuto'}`);
+            }
         }
 
         document.getElementById('topicForm').addEventListener('submit', async (e) => {
@@ -334,25 +352,30 @@
             }
         });
 
-        // --- IMPORT Dati JSON ---
+        // --- IMPORT Dati JSON Sicuro ---
         document.getElementById('importBtn').addEventListener('click', async () => {
-            const jsonStr = prompt("Incolla qui l'array JSON dei tuoi argomenti da importare. (Questo sovrascriverà i dati esistenti):");
-            if (!jsonStr) return;
+            const jsonStr = document.getElementById('importJsonArea').value.trim();
+            if (!jsonStr) {
+                alert("Incolla l'array JSON nel riquadro prima di cliccare su Import Data.");
+                return;
+            }
             
             try {
                 const dataToImport = JSON.parse(jsonStr);
-                document.getElementById('importBtn').textContent = 'Importing...';
+                const btn = document.getElementById('importBtn');
+                btn.textContent = 'Importing...';
                 
                 await saveToGist(dataToImport);
                 topics = dataToImport;
                 
                 alert("Importazione completata con successo!");
+                document.getElementById('importJsonArea').value = ''; // Pulisce il campo
                 renderFieldFilters();
                 renderTopics();
             } catch (err) {
                 alert("Errore durante l'importazione. Dettaglio: " + err.message);
             } finally {
-                document.getElementById('importBtn').textContent = 'Import JSON Data';
+                document.getElementById('importBtn').textContent = 'Import Data';
             }
         });
 
