@@ -4,7 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Knowledge Vault</title>
+    <!-- Elegant SVG Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20'/><path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z'/></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Vis-Network for Graph View -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <!-- Lucide Icons (Elegant Vector Icons) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
             --bg: #f8fafc; --surface: #ffffff; --surface-hover: #f1f5f9;
@@ -21,19 +27,22 @@
         body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text-main); padding: 2rem; line-height: 1.6; }
         .container { max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 2rem; }
         
+        .icon-sm { width: 18px; height: 18px; }
+        .icon-xs { width: 14px; height: 14px; }
+
         /* HEADER & NAV */
         header { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 1rem; }
         .title-area h1 { font-size: 2.25rem; font-weight: 700; letter-spacing: -0.03em; color: #0f172a;}
         .title-area p { color: var(--text-muted); font-size: 1rem; margin-top: 0.25rem; font-weight: 400;}
         
         .main-nav { display: flex; gap: 0.75rem; background: var(--surface); padding: 0.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: var(--shadow-sm); margin-bottom: 1rem;}
-        .nav-tab { flex: 1; padding: 0.75rem 1.5rem; border: none; background: transparent; font-size: 0.95rem; font-weight: 600; color: var(--text-muted); border-radius: var(--radius-md); cursor: pointer; transition: var(--transition); text-align: center; }
+        .nav-tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem 1.5rem; border: none; background: transparent; font-size: 0.95rem; font-weight: 600; color: var(--text-muted); border-radius: var(--radius-md); cursor: pointer; transition: var(--transition); }
         .nav-tab.active { background: var(--bg); color: var(--primary); box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
         .nav-tab:hover:not(.active) { background: var(--surface-hover); color: var(--text-main); }
-        #tab-categories { flex: 0 1 auto; }
+        #tab-categories, #tab-graph { flex: 0 1 auto; }
 
         .controls-area { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;}
-        .icon-btn { background: var(--surface); border: 1px solid var(--border); padding: 0.5rem 1rem; border-radius: var(--radius-md); cursor: pointer; font-weight: 500; color: var(--text-main); box-shadow: var(--shadow-sm); transition: var(--transition); display: inline-flex; align-items: center; justify-content: center;}
+        .icon-btn { background: var(--surface); border: 1px solid var(--border); padding: 0.5rem 1rem; border-radius: var(--radius-md); cursor: pointer; font-weight: 500; color: var(--text-main); box-shadow: var(--shadow-sm); transition: var(--transition); display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;}
         .icon-btn:hover { background: var(--surface-hover); border-color: var(--primary); color: var(--primary);}
         .icon-btn.danger:hover { border-color: #ef4444; color: #ef4444; background: #fef2f2; }
         
@@ -45,7 +54,7 @@
         .btn-secondary:hover:not(:disabled) { border-color: var(--text-muted); background: var(--surface-hover); }
 
         .view-controls { display: flex; gap: 0.25rem; background: var(--bg); padding: 0.25rem; border-radius: var(--radius-md); border: 1px solid var(--border); }
-        .view-btn { background: transparent; border: none; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; color: var(--text-muted); transition: var(--transition); font-size: 0.85rem;}
+        .view-btn { display: flex; align-items: center; justify-content: center; background: transparent; border: none; padding: 0.4rem 0.6rem; border-radius: 6px; cursor: pointer; color: var(--text-muted); transition: var(--transition); }
         .view-btn.active { background: var(--surface); color: var(--text-main); box-shadow: var(--shadow-sm); }
         
         .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite; }
@@ -73,35 +82,36 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
         /* SORT & GROUP CONTROLS */
-        .list-header-controls { display: flex; justify-content: flex-end; gap: 1rem; margin-bottom: 1.5rem; align-items: center; }
+        .list-header-controls { display: flex; justify-content: flex-end; gap: 1rem; margin-bottom: 1.5rem; align-items: center; flex-wrap: wrap;}
         .list-header-controls select { width: auto; padding: 0.4rem 2rem 0.4rem 0.8rem; font-size: 0.85rem; border-radius: var(--radius-md); background-color: var(--surface); border-color: var(--border); cursor: pointer;}
         .group-header { grid-column: 1 / -1; font-size: 1.25rem; font-weight: 700; color: var(--text-main); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-top: 1rem; }
 
         /* TAGS */
         .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; }
-        .tag { font-size: 0.75rem; padding: 0.25rem 0.65rem; border-radius: 6px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; box-sizing: border-box; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .tag { font-size: 0.75rem; padding: 0.25rem 0.65rem; border-radius: 6px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; box-sizing: border-box; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; gap: 4px; }
         .tag:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); filter: brightness(0.95); }
         
         .tag-field { color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.15); border: 1px solid rgba(0,0,0,0.1); }
         .tag-section { color: var(--text-main); } 
         .tag-status { background-color: var(--status-bg); color: var(--status-text); border: 1px solid #bbf7d0;}
         .tag-source-link { background: var(--bg); color: var(--text-main); border: 1px solid var(--border); }
-        .tag-primary-star { color: #f59e0b; margin-right: 4px; font-size: 0.85rem;}
-
+        
         /* GRIDS & CARDS */
         .topics-container { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
-        .topic-card { background: var(--surface); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow-sm); transition: var(--transition); display: flex; flex-direction: column; cursor: pointer; }
+        .topic-card { background: var(--surface); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow-sm); transition: var(--transition); display: flex; flex-direction: column; cursor: pointer; position: relative;}
         .topic-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: #93c5fd; }
         .topic-image { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #e2e8f0; border-bottom: 1px solid var(--border); }
         .topic-content { padding: 1.5rem; display: flex; flex-direction: column; flex-grow: 1; }
         .topic-title { font-size: 1.15rem; font-weight: 700; line-height: 1.3; color: var(--text-main); letter-spacing: -0.01em; pointer-events: none;}
+        .topic-sub-badge { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-bottom: 0.35rem; pointer-events: none; display: flex; align-items: center; gap: 4px;}
         
         .topics-container.list-view, .sources-list { grid-template-columns: 1fr; gap: 0.75rem; }
         .topics-container.list-view .topic-card { flex-direction: row; align-items: center; padding: 1rem 1.5rem; gap: 1.5rem; }
         .topics-container.list-view .topic-image { display: none; }
-        .topics-container.list-view .topic-content { flex-direction: row; justify-content: space-between; align-items: center; width: 100%; padding: 0; }
+        .topics-container.list-view .topic-content { flex-direction: row; justify-content: space-between; align-items: center; width: 100%; padding: 0; flex-wrap: wrap;}
         .topics-container.list-view .topic-title { font-size: 1.05rem; min-width: 200px; margin-bottom: 0;}
         .topics-container.list-view .tags { margin-top: 0; justify-content: flex-end; }
+        .topics-container.list-view .topic-sub-badge { width: 100%; margin-bottom: 0.25rem; }
 
         .source-card { background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--border); padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; transition: var(--transition); cursor: pointer; gap: 1.25rem; box-shadow: var(--shadow-sm);}
         .source-card:hover { background: var(--surface); border-color: #93c5fd; box-shadow: var(--shadow-md); transform: translateY(-2px);}
@@ -128,7 +138,7 @@
         .modal-btn.danger:hover { border-color: #ef4444; color: #ef4444; background: #fef2f2; }
 
         .modal-body { padding: 3rem 2.5rem; }
-        .modal-title { font-size: 1.75rem; font-weight: 700; margin-bottom: 1.5rem; line-height: 1.2; padding-right: 100px; color: var(--text-main); letter-spacing: -0.02em;}
+        .modal-title { font-size: 1.75rem; font-weight: 700; margin-bottom: 1.5rem; line-height: 1.2; padding-right: 150px; color: var(--text-main); letter-spacing: -0.02em;}
         
         /* FORMS */
         .form-group { margin-bottom: 1.5rem; }
@@ -173,6 +183,26 @@
         
         .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; max-height: 200px; overflow-y: auto; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg); }
 
+        /* Search Input */
+        .search-input-box { width: 100%; padding: 0.75rem 1rem 0.75rem 2.5rem; border-radius: 30px; border: 1px solid var(--border); background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M21 21l-4.35-4.35M16.65 16.65A7.5 7.5 0 1116.65 6a7.5 7.5 0 010 10.65z'%3E%3C/path%3E%3C/svg%3E") no-repeat 10px center; background-size: 18px; outline: none; transition: var(--transition); box-shadow: var(--shadow-sm);}
+        .search-input-box:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        
+        /* Autocomplete Smart Chips Dropdown */
+        .autocomplete-dropdown {
+            position: absolute; display: none; background: var(--surface);
+            border: 1px solid var(--border); border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg); max-height: 220px; overflow-y: auto;
+            z-index: 1000; min-width: 280px; margin-top: 4px;
+        }
+        .autocomplete-item {
+            padding: 0.65rem 1rem; cursor: pointer; font-size: 0.85rem; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: var(--text-main);
+        }
+        .autocomplete-item:hover, .autocomplete-item.selected {
+            background: var(--surface-hover); color: var(--primary);
+        }
+        .autocomplete-item:last-child { border-bottom: none; }
+
         @media (max-width: 900px) { 
             .layout { grid-template-columns: 1fr; } 
             .sidebar { display: none; position: static; max-height: none;}
@@ -191,29 +221,33 @@
                 <p>Organize, filter, and explore your intellectual pursuits</p>
             </div>
             <div class="controls-area">
-                <button class="icon-btn" id="openSettingsBtn" title="Settings & Database">⚙️ DB Connection</button>
+                <button class="icon-btn" id="openSettingsBtn" title="Settings & Database"><i data-lucide="database" class="icon-sm"></i> DB Connection</button>
                 <div class="view-controls" id="gridListControls">
-                    <button class="view-btn active" id="btn-grid">Grid</button>
-                    <button class="view-btn" id="btn-list">List</button>
+                    <button class="view-btn active" id="btn-grid" title="Grid View"><i data-lucide="grid" class="icon-sm"></i></button>
+                    <button class="view-btn" id="btn-list" title="List View"><i data-lucide="list" class="icon-sm"></i></button>
                 </div>
-                <button class="btn-primary" id="mainAddTopicBtn" style="display: flex;">+ New Topic</button>
-                <button class="btn-primary" id="mainAddSourceBtn" style="display: none;">+ New Source</button>
-                <button class="btn-primary" id="mobileFilterToggle" style="display: none;">Filters</button>
+                <button class="btn-primary" id="mainAddTopicBtn" style="display: flex;"><i data-lucide="plus" class="icon-sm"></i> New Topic</button>
+                <button class="btn-primary" id="mainAddSourceBtn" style="display: none;"><i data-lucide="plus" class="icon-sm"></i> New Source</button>
+                <button class="btn-primary" id="mobileFilterToggle" style="display: none;"><i data-lucide="filter" class="icon-sm"></i> Filters</button>
             </div>
         </header>
 
         <!-- Main Navigation -->
         <div class="main-nav">
-            <button class="nav-tab active" id="tab-topics">📚 Topics</button>
-            <button class="nav-tab" id="tab-sources">🔖 Sources & References</button>
-            <button class="nav-tab" id="tab-categories">🏷️ Fields & Sections</button>
+            <button class="nav-tab active" id="tab-topics"><i data-lucide="library" class="icon-sm"></i> Topics</button>
+            <button class="nav-tab" id="tab-sources"><i data-lucide="bookmark" class="icon-sm"></i> Sources & References</button>
+            <button class="nav-tab" id="tab-categories"><i data-lucide="tags" class="icon-sm"></i> Fields & Sections</button>
+            <button class="nav-tab" id="tab-graph"><i data-lucide="network" class="icon-sm"></i> Graph</button>
         </div>
         
         <div class="layout">
             <aside class="sidebar active" id="sidebar">
                 <div class="sidebar-section active" id="sidebar-topics">
                     <div class="panel">
-                        <h2>Filter Topics</h2>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.25rem;">
+                            <h2 style="margin-bottom:0;">Filter Topics</h2>
+                            <button id="clearFiltersBtn" class="btn-secondary" style="display:none; padding: 0.2rem 0.5rem; font-size: 0.75rem;"><i data-lucide="x-circle" class="icon-xs"></i> Clear Filters</button>
+                        </div>
                         <div class="filter-group">
                             <h3>Main Fields</h3>
                             <div class="checkbox-list" id="fields-filter-list"></div>
@@ -222,12 +256,20 @@
                             <h3>Subsections</h3>
                             <div class="checkbox-list" id="sections-filter-list"></div>
                         </div>
+                        <div class="filter-group" style="margin-top: 2rem;">
+                            <h3>Visibility</h3>
+                            <label class="checkbox-label" title="Show topics that are sub-topics of others">
+                                <input type="checkbox" id="showSubtopicsFilter"> Show Sub-topics
+                            </label>
+                        </div>
                     </div>
                 </div>
 
                 <div class="sidebar-section" id="sidebar-sources">
                     <div class="panel">
-                        <h2>Filter Sources</h2>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.25rem;">
+                            <h2 style="margin-bottom:0;">Filter Sources</h2>
+                        </div>
                         <div class="filter-group">
                             <h3>Reading Status</h3>
                             <div class="checkbox-list" id="source-status-filters"></div>
@@ -251,6 +293,9 @@
             <main class="content-area">
                 <div class="view-section active" id="view-topics">
                     <div class="list-header-controls">
+                        <div style="flex-grow: 1; max-width: 400px; margin-right: auto;">
+                            <input type="text" id="topicSearchInput" class="search-input-box" placeholder="Search topics...">
+                        </div>
                         <select id="topicGroupBy">
                             <option value="none">Group By: None</option>
                             <option value="field">Group By: Primary Field</option>
@@ -269,6 +314,9 @@
 
                 <div class="view-section" id="view-sources">
                     <div class="list-header-controls">
+                        <div style="flex-grow: 1; max-width: 400px; margin-right: auto;">
+                            <input type="text" id="sourceSearchInput" class="search-input-box" placeholder="Search sources...">
+                        </div>
                         <select id="sourceGroupBy">
                             <option value="none">Group By: None</option>
                             <option value="type">Group By: Type</option>
@@ -284,25 +332,43 @@
                 </div>
 
                 <div class="view-section" id="view-categories">
+                    <div style="margin-bottom: 2rem;">
+                        <input type="text" id="categorySearchInput" class="search-input-box" placeholder="Search fields and subsections..." style="max-width: 500px;">
+                    </div>
                     <div class="panel" style="background: transparent; border: none; box-shadow: none; padding: 0;">
                         <div class="cat-management-grid">
                             <div class="panel">
                                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:1rem; margin-bottom:1.5rem;">
                                     <h3 style="font-size:1.1rem; font-weight:700;">Main Fields</h3>
-                                    <button class="btn-secondary" style="padding: 0.4rem 0.75rem; font-size: 0.85rem;" onclick="openEditFieldModal()">+ New Field</button>
+                                    <button class="btn-secondary" style="padding: 0.4rem 0.75rem; font-size: 0.85rem;" onclick="openEditFieldModal()"><i data-lucide="plus" class="icon-xs"></i> New Field</button>
                                 </div>
                                 <div id="adminFieldsList"></div>
                             </div>
                             <div class="panel">
                                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:1rem; margin-bottom:1.5rem;">
                                     <h3 style="font-size:1.1rem; font-weight:700;">Subsections</h3>
-                                    <button class="btn-secondary" style="padding: 0.4rem 0.75rem; font-size: 0.85rem;" onclick="openEditSectionModal()">+ New Subsection</button>
+                                    <button class="btn-secondary" style="padding: 0.4rem 0.75rem; font-size: 0.85rem;" onclick="openEditSectionModal()"><i data-lucide="plus" class="icon-xs"></i> New Subsection</button>
                                 </div>
                                 <div id="adminSectionsList"></div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- GRAPH VIEW SECTION -->
+                <div class="view-section" id="view-graph">
+                    <div class="panel" style="height: calc(100vh - 10rem); padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--surface);">
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-main);">Knowledge Graph</h3>
+                                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Double-click a node to open. Link notes using <code>[[Topic Title]]</code>. Sub-topics automatically link to parents.</div>
+                            </div>
+                            <button class="btn-secondary" onclick="renderGraph()"><i data-lucide="refresh-cw" class="icon-sm"></i> Refresh</button>
+                        </div>
+                        <div id="graph-network-container" style="flex-grow: 1; width: 100%; background: #fafcff; outline: none;"></div>
+                    </div>
+                </div>
+
             </main>
         </div>
     </div>
@@ -312,9 +378,10 @@
     <div class="modal-overlay" id="topicDetailModal">
         <div class="modal-content">
             <div class="modal-controls-top">
-                <button class="modal-btn" id="editTopicModeBtn" title="Edit Properties">✏️</button>
-                <button class="modal-btn danger" id="deleteTopicBtn" title="Delete Topic">🗑️</button>
-                <button class="modal-btn" id="closeTopicModalBtn">&times;</button>
+                <button class="modal-btn" id="createSubtopicBtn" title="Create Sub-topic"><i data-lucide="file-plus-2" class="icon-sm"></i></button>
+                <button class="modal-btn" id="editTopicModeBtn" title="Edit Properties"><i data-lucide="edit-2" class="icon-sm"></i></button>
+                <button class="modal-btn danger" id="deleteTopicBtn" title="Delete Topic"><i data-lucide="trash-2" class="icon-sm"></i></button>
+                <button class="modal-btn" id="closeTopicModalBtn"><i data-lucide="x" class="icon-sm"></i></button>
             </div>
             
             <div class="modal-body" style="padding-top: 4rem;">
@@ -323,21 +390,25 @@
                 
                 <div class="topic-notes-section" style="margin-bottom: 2.5rem;">
                     <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main);">📝 Notes & Content</h3>
-                        <button class="btn-secondary" id="saveNotesBtn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; font-weight: 600;">Save Notes</button>
+                        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.4rem;"><i data-lucide="file-text" class="icon-sm"></i> Notes & Content</h3>
+                        <button class="btn-secondary" id="saveNotesBtn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; font-weight: 600;"><i data-lucide="save" class="icon-xs"></i> Save Notes</button>
                     </div>
-                    <textarea id="detailTopicNotes" rows="8" placeholder="Write your notes here... They will be saved directly to this topic." style="width: 100%; resize: vertical; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; background: var(--surface); line-height: 1.6;"></textarea>
+                    <!-- Autocomplete Wrapper -->
+                    <div style="position: relative;">
+                        <textarea id="detailTopicNotes" rows="8" placeholder="Write your notes here... Type [[ to link to other topics via Smart Chips." style="width: 100%; resize: vertical; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; background: var(--surface); line-height: 1.6;"></textarea>
+                        <div id="topicAutocomplete" class="autocomplete-dropdown"></div>
+                    </div>
                 </div>
                 
                 <div style="border-top: 1px solid var(--border); padding-top: 2rem;">
-                    <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--text-main);">🔖 Linked Sources</h3>
+                    <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--text-main); display: flex; align-items: center; gap: 0.4rem;"><i data-lucide="bookmark" class="icon-sm"></i> Linked Sources</h3>
                     <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem;">
                         <input type="text" id="searchSourceInput" list="allSourcesDatalist" placeholder="Search existing source to link...">
                         <datalist id="allSourcesDatalist"></datalist>
-                        <button class="btn-secondary" id="linkExistingSourceBtn">Link</button>
+                        <button class="btn-secondary" id="linkExistingSourceBtn"><i data-lucide="link" class="icon-xs"></i> Link</button>
                     </div>
                     <div class="sources-list" id="topicSpecificSourcesContainer" style="margin-bottom: 1.5rem;"></div>
-                    <button class="btn-secondary" id="createNewSourceFromTopicBtn" style="width: 100%; justify-content: center;">+ Create New Source for this Topic</button>
+                    <button class="btn-secondary" id="createNewSourceFromTopicBtn" style="width: 100%; justify-content: center;"><i data-lucide="plus" class="icon-xs"></i> Create New Source for this Topic</button>
                 </div>
             </div>
         </div>
@@ -354,6 +425,13 @@
                         <input type="text" id="formTopicTitle" required>
                     </div>
                     
+                    <div class="form-group">
+                        <label class="input-label">Parent Topic (Optional, makes this a sub-topic)</label>
+                        <select id="formTopicParentId">
+                            <option value="">None (Main Topic)</option>
+                        </select>
+                    </div>
+
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
                         <div>
                             <div class="form-group">
@@ -362,7 +440,7 @@
                                 <input type="text" id="inlineAddField" placeholder="+ Quick Add Field (Enter)" class="inline-add-input">
                             </div>
                             <div class="form-group" id="primaryFieldGroup" style="display: none; margin-bottom: 1.5rem;">
-                                <label class="input-label" style="color: #f59e0b;">Primary Field (★)</label>
+                                <label class="input-label" style="color: #f59e0b; display: flex; align-items: center; gap: 4px;"><i data-lucide="star" class="icon-xs"></i> Primary Field</label>
                                 <select id="formPrimaryField">
                                     <option value="">None</option>
                                 </select>
@@ -374,7 +452,7 @@
                                 <input type="text" id="inlineAddSection" placeholder="+ Quick Add Subsection (Enter)" class="inline-add-input">
                             </div>
                             <div class="form-group" id="primarySectionGroup" style="display: none;">
-                                <label class="input-label" style="color: #f59e0b;">Primary Subsection (★)</label>
+                                <label class="input-label" style="color: #f59e0b; display: flex; align-items: center; gap: 4px;"><i data-lucide="star" class="icon-xs"></i> Primary Subsection</label>
                                 <select id="formPrimarySection">
                                     <option value="">None</option>
                                 </select>
@@ -385,13 +463,13 @@
                             <div class="form-group">
                                 <label class="input-label">Cover Image</label>
                                 <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                                    <button type="button" class="btn-secondary" onclick="document.getElementById('topicImageUpload').click()" style="width: 100%;">📁 Upload or Ctrl+V</button>
+                                    <button type="button" class="btn-secondary" onclick="document.getElementById('topicImageUpload').click()" style="width: 100%;"><i data-lucide="upload" class="icon-sm"></i> Upload or Ctrl+V</button>
                                     <input type="file" id="topicImageUpload" accept="image/*" style="display: none;">
                                     <input type="hidden" id="formTopicImgUrl">
                                 </div>
                                 <div id="imagePreviewContainer" style="display: none; position: relative; width: 100%; aspect-ratio: 16/9; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border);">
                                     <img id="imagePreview" src="" style="width: 100%; height: 100%; object-fit: cover;">
-                                    <button type="button" class="icon-btn danger" style="position: absolute; top: 8px; right: 8px; padding: 0; min-width: 28px; height: 28px; font-size: 0.8rem;" onclick="clearImage()">✕</button>
+                                    <button type="button" class="icon-btn danger" style="position: absolute; top: 8px; right: 8px; padding: 0; min-width: 28px; height: 28px;" onclick="clearImage()"><i data-lucide="x" class="icon-sm"></i></button>
                                 </div>
                                 <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; line-height: 1.4;">Paste (Ctrl+V) an image here. It will be compressed to save database space.</p>
                             </div>
@@ -400,7 +478,7 @@
 
                     <div class="form-actions">
                         <button type="button" class="btn-cancel" onclick="document.getElementById('topicFormModal').classList.remove('active')">Cancel</button>
-                        <button type="submit" class="btn-primary" id="saveTopicBtn">Save Properties</button>
+                        <button type="submit" class="btn-primary" id="saveTopicBtn"><i data-lucide="save" class="icon-sm"></i> Save Properties</button>
                     </div>
                 </form>
             </div>
@@ -412,7 +490,7 @@
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-body">
                 <div class="modal-controls-top" id="sourceFormDeleteControl" style="display: none;">
-                    <button type="button" class="modal-btn danger" id="deleteSourceBtn" title="Delete Source">🗑</button>
+                    <button type="button" class="modal-btn danger" id="deleteSourceBtn" title="Delete Source"><i data-lucide="trash-2" class="icon-sm"></i></button>
                 </div>
                 <h2 class="modal-title" id="sourceFormTitle">New Source</h2>
                 <form id="sourceForm">
@@ -462,7 +540,7 @@
                     </div>
                     <div class="form-actions">
                         <button type="button" class="btn-cancel" onclick="document.getElementById('sourceFormModal').classList.remove('active')">Cancel</button>
-                        <button type="submit" class="btn-primary" id="saveSourceBtn">Save Source</button>
+                        <button type="submit" class="btn-primary" id="saveSourceBtn"><i data-lucide="save" class="icon-sm"></i> Save Source</button>
                     </div>
                 </form>
             </div>
@@ -488,7 +566,7 @@
                     </div>
                     <div class="form-actions">
                         <button type="button" class="btn-cancel" onclick="document.getElementById('editFieldModal').classList.remove('active')">Cancel</button>
-                        <button type="submit" class="btn-primary" id="saveFieldBtn">Save Changes</button>
+                        <button type="submit" class="btn-primary" id="saveFieldBtn"><i data-lucide="save" class="icon-sm"></i> Save Changes</button>
                     </div>
                 </form>
             </div>
@@ -512,7 +590,7 @@
                     </div>
                     
                     <div class="form-group" id="editSectionPrimaryParentGroup" style="display: none;">
-                        <label class="input-label" style="color: #f59e0b;">Primary Field (★)</label>
+                        <label class="input-label" style="color: #f59e0b; display: flex; align-items: center; gap: 4px;"><i data-lucide="star" class="icon-xs"></i> Primary Field</label>
                         <select id="editSectionPrimaryParent">
                             <option value="">None</option>
                         </select>
@@ -521,7 +599,7 @@
 
                     <div class="form-actions">
                         <button type="button" class="btn-cancel" onclick="document.getElementById('editSectionModal').classList.remove('active')">Cancel</button>
-                        <button type="submit" class="btn-primary" id="saveSectionBtn">Save Changes</button>
+                        <button type="submit" class="btn-primary" id="saveSectionBtn"><i data-lucide="save" class="icon-sm"></i> Save Changes</button>
                     </div>
                 </form>
             </div>
@@ -552,6 +630,9 @@
     </div>
 
     <script>
+        // Init Icons on load
+        lucide.createIcons();
+
         // --- DATA STATE ---
         let topics = [];
         let sources = [];
@@ -575,15 +656,37 @@
         let selectedFilterSections = new Set();
         let selectedFilterSourceTypes = new Set();
         let selectedFilterSourceStatuses = new Set();
+        
+        let graphNetwork = null;
 
         if(window.innerWidth <= 900) { document.getElementById('mobileFilterToggle').style.display = 'block'; }
         document.getElementById('mobileFilterToggle').addEventListener('click', () => { document.getElementById('sidebar').classList.toggle('active'); });
 
-        // Event Listeners Sort/Group
+        // Event Listeners Sort/Group & Search
         document.getElementById('topicSortBy').addEventListener('change', renderTopics);
         document.getElementById('topicGroupBy').addEventListener('change', renderTopics);
         document.getElementById('sourceSortBy').addEventListener('change', renderSources);
         document.getElementById('sourceGroupBy').addEventListener('change', renderSources);
+        document.getElementById('showSubtopicsFilter').addEventListener('change', renderTopics);
+        document.getElementById('topicSearchInput').addEventListener('input', renderTopics);
+        document.getElementById('sourceSearchInput').addEventListener('input', renderSources);
+
+        // Clear Filters
+        document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+            selectedFilterFields.clear();
+            selectedFilterSections.clear();
+            document.getElementById('showSubtopicsFilter').checked = false;
+            updateUI();
+        });
+
+        // Search in Categories
+        document.getElementById('categorySearchInput').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            document.querySelectorAll('.cat-list-item').forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(term) ? 'flex' : 'none';
+            });
+        });
 
         // --- UI UTILITIES ---
         function toggleLoading(btnId, isLoading, originalText = 'Save') {
@@ -600,18 +703,29 @@
 
         function switchTab(tab) {
             activeTab = tab;
-            ['topics', 'sources', 'categories'].forEach(t => {
-                document.getElementById(`tab-${t}`).classList.toggle('active', tab === t);
-                document.getElementById(`view-${t}`).classList.toggle('active', tab === t);
-                document.getElementById(`sidebar-${t}`).classList.toggle('active', tab === t);
+            ['topics', 'sources', 'categories', 'graph'].forEach(t => {
+                const tEl = document.getElementById(`tab-${t}`);
+                if(tEl) tEl.classList.toggle('active', tab === t);
+                
+                const vEl = document.getElementById(`view-${t}`);
+                if(vEl) vEl.classList.toggle('active', tab === t);
+                
+                const sEl = document.getElementById(`sidebar-${t}`);
+                if(sEl) sEl.classList.toggle('active', tab === t);
             });
+            
             document.getElementById('gridListControls').style.display = tab === 'topics' ? 'flex' : 'none';
             document.getElementById('mainAddTopicBtn').style.display = tab === 'topics' ? 'flex' : 'none';
             document.getElementById('mainAddSourceBtn').style.display = tab === 'sources' ? 'flex' : 'none';
+
+            if (tab === 'graph') {
+                setTimeout(renderGraph, 100);
+            }
         }
         document.getElementById('tab-topics').addEventListener('click', () => switchTab('topics'));
         document.getElementById('tab-sources').addEventListener('click', () => switchTab('sources'));
         document.getElementById('tab-categories').addEventListener('click', () => switchTab('categories'));
+        document.getElementById('tab-graph').addEventListener('click', () => switchTab('graph'));
 
         // --- TAG FILTERING GLOBALE ---
         window.filterByTag = function(type, value) {
@@ -621,8 +735,10 @@
             } else if (type === 'section') {
                 selectedFilterSections.clear(); selectedFilterSections.add(value);
                 const sec = metadata.sections.find(s => s.name === value);
+                // NEW: Ensure all parent fields of the section are checked in the filter UI
                 if (sec && sec.parents && sec.parents.length > 0) {
-                    selectedFilterFields.clear(); selectedFilterFields.add(sec.parents[0]); 
+                    selectedFilterFields.clear(); 
+                    sec.parents.forEach(p => selectedFilterFields.add(p));
                 }
                 switchTab('topics');
             } else if (type === 'type') {
@@ -646,11 +762,6 @@
             
             if (parents.length === 0) return 'border: 2.5px solid #cbd5e1; background: var(--surface); color: var(--text-main);';
             
-            if (sec && sec.primaryParent && parents.includes(sec.primaryParent)) {
-                const color = getFieldColor(sec.primaryParent);
-                return `border: 2.5px solid ${color}; background: var(--surface); color: ${color};`;
-            }
-
             if (parents.length === 1) {
                 const color = getFieldColor(parents[0]);
                 return `border: 2.5px solid ${color}; background: var(--surface); color: ${color};`;
@@ -731,7 +842,7 @@
             return changed;
         }
 
-        // --- API GITHUB & RAW CONTENT FETCH (FIX PER ERRORI DI TRONCAMENTO) ---
+        // --- API GITHUB & RAW CONTENT FETCH ---
         const settingsModal = document.getElementById('settingsModal');
         function getCredentials() { return { gistId: localStorage.getItem('kv_gist_id'), pat: localStorage.getItem('kv_github_pat') }; }
 
@@ -753,7 +864,6 @@
             loadData();
         });
 
-        // Risolve l'errore JSON "Unterminated String" scaricando il raw file se Github l'ha troncato
         async function fetchIntegralGistFile(fileObj) {
             if (!fileObj) return '[]';
             if (fileObj.truncated) {
@@ -827,19 +937,33 @@
             renderSources();
             renderCategoryManagement();
             
+            // Aggiorna stato visivo del clear filters
+            const clearBtn = document.getElementById('clearFiltersBtn');
+            if (selectedFilterFields.size > 0 || selectedFilterSections.size > 0 || document.getElementById('showSubtopicsFilter').checked) {
+                clearBtn.style.display = 'inline-flex';
+            } else {
+                clearBtn.style.display = 'none';
+            }
+            
             document.getElementById('statsText').innerHTML = `
-                📚 Topics: <span style="color:var(--text-main); font-weight:700;">${topics.length}</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
-                🔖 Sources: <span style="color:var(--text-main); font-weight:700;">${sources.length}</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
-                🗂️ Fields: <span style="color:var(--text-main); font-weight:700;">${metadata.fields.length}</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
-                📑 Subsections: <span style="color:var(--text-main); font-weight:700;">${metadata.sections.length}</span>
+                <i data-lucide="library" class="icon-sm" style="vertical-align:text-bottom;"></i> Topics: <span style="color:var(--text-main); font-weight:700;">${topics.length}</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                <i data-lucide="bookmark" class="icon-sm" style="vertical-align:text-bottom;"></i> Sources: <span style="color:var(--text-main); font-weight:700;">${sources.length}</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                <i data-lucide="tags" class="icon-sm" style="vertical-align:text-bottom;"></i> Fields: <span style="color:var(--text-main); font-weight:700;">${metadata.fields.length}</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                <i data-lucide="folder" class="icon-sm" style="vertical-align:text-bottom;"></i> Subsections: <span style="color:var(--text-main); font-weight:700;">${metadata.sections.length}</span>
             `;
             document.getElementById('allSourcesDatalist').innerHTML = sources.map(s => `<option value="${s.title}" data-id="${s.id}">`).join('');
+            
+            if(activeTab === 'graph') renderGraph();
+            lucide.createIcons();
         }
 
-        // --- CATEGORIES SYSTEM (Cascading Edits & Modals) ---
+        // --- CATEGORIES SYSTEM ---
         function renderCategoryManagement() {
+            const term = document.getElementById('categorySearchInput').value.toLowerCase();
+            
             const fCont = document.getElementById('adminFieldsList'); fCont.innerHTML = '';
             metadata.fields.filter(f => f && f.name).sort((a,b)=>a.name.localeCompare(b.name)).forEach(f => {
+                if (term && !f.name.toLowerCase().includes(term)) return;
                 const item = document.createElement('div'); item.className = 'cat-list-item';
                 item.innerHTML = `
                     <div style="display:flex; align-items:center; gap:1rem;">
@@ -847,8 +971,8 @@
                         <strong style="font-size:1rem; color: var(--text-main);">${f.name}</strong>
                     </div>
                     <div style="display:flex; gap:0.5rem;">
-                        <button class="icon-btn" style="padding:0.35rem 0.6rem;" onclick="openEditFieldModal('${f.name.replace(/'/g, "\\'")}')">✏️</button>
-                        <button class="icon-btn danger" style="padding:0.35rem 0.6rem;" onclick="deleteField('${f.name.replace(/'/g, "\\'")}')">🗑️</button>
+                        <button class="icon-btn" style="padding:0.35rem 0.6rem;" onclick="openEditFieldModal('${f.name.replace(/'/g, "\\'")}')"><i data-lucide="edit-2" class="icon-xs"></i></button>
+                        <button class="icon-btn danger" style="padding:0.35rem 0.6rem;" onclick="deleteField('${f.name.replace(/'/g, "\\'")}')"><i data-lucide="trash-2" class="icon-xs"></i></button>
                     </div>
                 `;
                 fCont.appendChild(item);
@@ -856,9 +980,10 @@
 
             const sCont = document.getElementById('adminSectionsList'); sCont.innerHTML = '';
             metadata.sections.filter(s => s && s.name).sort((a,b)=>a.name.localeCompare(b.name)).forEach(s => {
+                if (term && !s.name.toLowerCase().includes(term)) return;
                 const pText = (s.parents && s.parents.length > 0) ? s.parents.join(', ') : 'No linked field';
                 let primaryInfo = '';
-                if (s.primaryParent) primaryInfo = ` <span style="color:#f59e0b;" title="Primary Field">★ ${s.primaryParent}</span>`;
+                if (s.primaryParent) primaryInfo = ` <span style="color:#f59e0b;" title="Primary Field"><i data-lucide="star" style="width:12px; height:12px; display:inline;"></i> ${s.primaryParent}</span>`;
 
                 const item = document.createElement('div'); item.className = 'cat-list-item';
                 item.innerHTML = `
@@ -867,17 +992,17 @@
                         <span style="display:block; margin-top: 0.35rem; font-size:0.8rem; color:var(--text-muted); font-weight: 500;">In: ${pText}${primaryInfo}</span>
                     </div>
                     <div style="display:flex; gap:0.5rem;">
-                        <button class="icon-btn" style="padding:0.35rem 0.6rem;" onclick="openEditSectionModal('${s.name.replace(/'/g, "\\'")}')">✏️</button>
-                        <button class="icon-btn danger" style="padding:0.35rem 0.6rem;" onclick="deleteSection('${s.name.replace(/'/g, "\\'")}')">🗑️</button>
+                        <button class="icon-btn" style="padding:0.35rem 0.6rem;" onclick="openEditSectionModal('${s.name.replace(/'/g, "\\'")}')"><i data-lucide="edit-2" class="icon-xs"></i></button>
+                        <button class="icon-btn danger" style="padding:0.35rem 0.6rem;" onclick="deleteSection('${s.name.replace(/'/g, "\\'")}')"><i data-lucide="trash-2" class="icon-xs"></i></button>
                     </div>
                 `;
                 sCont.appendChild(item);
             });
+            lucide.createIcons();
         }
 
-        // Modal Edit FIELD
+        // Modals per Field / Section
         const editFieldModal = document.getElementById('editFieldModal');
-        
         function renderDiscreteColorPalette(selectedColor) {
             const usedColors = metadata.fields.map(f => f.color.toLowerCase());
             const cont = document.getElementById('discreteColorPalette');
@@ -933,7 +1058,7 @@
                 if (metadata.fields.some(f => f && f.name.toLowerCase() === newName.toLowerCase())) { alert("Field already exists!"); return; }
                 metadata.fields.push({name: newName, color: newColor});
             }
-            await saveData(true, 'saveFieldBtn', 'Save Changes'); 
+            await saveData(true, 'saveFieldBtn', `<i data-lucide="save" class="icon-sm"></i> Save Changes`); 
             editFieldModal.classList.remove('active');
         });
 
@@ -952,7 +1077,6 @@
             }
         };
 
-        // Modal Edit SUBSECTION
         const editSectionModal = document.getElementById('editSectionModal');
         
         function updateEditSectionPrimaryDropdown(currentPrimary = null) {
@@ -1025,7 +1149,7 @@
                 if (metadata.sections.some(s => s && s.name.toLowerCase() === newName.toLowerCase())) { alert("Subsection already exists!"); return; }
                 metadata.sections.push({name: newName, parents: newParents, primaryParent: primaryParent});
             }
-            await saveData(true, 'saveSectionBtn', 'Save Changes'); 
+            await saveData(true, 'saveSectionBtn', `<i data-lucide="save" class="icon-sm"></i> Save Changes`); 
             editSectionModal.classList.remove('active');
         });
 
@@ -1040,9 +1164,8 @@
             }
         };
 
-        // --- TAG SYSTEM FOR FORMS (Chip Selectors) ---
+        // --- TAG SYSTEM FOR FORMS ---
         function updatePrimaryDropdowns(currentPrimaryField = null, currentPrimarySection = null) {
-            // Primary Field Dropdown
             const pfGroup = document.getElementById('primaryFieldGroup');
             const pfSelect = document.getElementById('formPrimaryField');
             if (formSelectedFields.size > 0) {
@@ -1055,7 +1178,6 @@
                 pfSelect.innerHTML = '<option value="">None</option>';
             }
 
-            // Primary Section Dropdown
             const psGroup = document.getElementById('primarySectionGroup');
             const psSelect = document.getElementById('formPrimarySection');
             if (formSelectedSections.size > 0) {
@@ -1066,6 +1188,22 @@
             } else {
                 psGroup.style.display = 'none';
                 psSelect.innerHTML = '<option value="">None</option>';
+            }
+            lucide.createIcons();
+        }
+
+        function populateParentTopicDropdown(excludeId = null, preselectedId = null) {
+            const parentSelect = document.getElementById('formTopicParentId');
+            let options = '<option value="">None (Main Topic)</option>';
+            
+            topics.forEach(t => {
+                if (t.id !== excludeId) {
+                    options += `<option value="${t.id}">${t.title}</option>`;
+                }
+            });
+            parentSelect.innerHTML = options;
+            if (preselectedId) {
+                parentSelect.value = preselectedId;
             }
         }
 
@@ -1151,7 +1289,7 @@
                 const img = new Image();
                 img.onload = function() {
                     const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 400; // Ridimensionamento drastico per JSON sano
+                    const MAX_WIDTH = 400; 
                     let width = img.width;
                     let height = img.height;
                     
@@ -1164,7 +1302,7 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.5); // Qualità 50%
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.5); 
                     
                     document.getElementById('formTopicImgUrl').value = dataUrl;
                     document.getElementById('imagePreview').src = dataUrl;
@@ -1194,7 +1332,6 @@
             document.getElementById('topicImageUpload').value = '';
         }
 
-        // Incolla immagine (Ctrl+V)
         document.addEventListener('paste', function(e) {
             if (!document.getElementById('topicFormModal').classList.contains('active')) return;
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
@@ -1216,7 +1353,27 @@
             clearImage();
             currentEditingId = null; formSelectedFields.clear(); formSelectedSections.clear();
             document.getElementById('topicFormTitle').textContent = 'New Topic';
+            
+            populateParentTopicDropdown();
             renderFormChips(); updatePrimaryDropdowns();
+            topicFormModal.classList.add('active');
+        });
+
+        // Tasto Creazione Sotto-tema nel Topic Modal
+        document.getElementById('createSubtopicBtn').addEventListener('click', () => {
+            const parentTopic = activeTopicInDetail;
+            if(!parentTopic) return;
+            document.getElementById('topicForm').reset();
+            clearImage();
+            currentEditingId = null; 
+            formSelectedFields = new Set(parentTopic.fields || []); 
+            formSelectedSections = new Set(parentTopic.sections || []);
+            document.getElementById('topicFormTitle').textContent = 'New Sub-topic';
+            
+            populateParentTopicDropdown(null, parentTopic.id);
+            renderFormChips(); updatePrimaryDropdowns(parentTopic.primaryField, parentTopic.primarySection);
+            
+            topicDetailModal.classList.remove('active');
             topicFormModal.classList.add('active');
         });
 
@@ -1226,15 +1383,16 @@
             const tData = {
                 id: currentEditingId || Date.now().toString(),
                 title: document.getElementById('formTopicTitle').value.trim(),
+                parentId: document.getElementById('formTopicParentId').value || null,
                 fields: Array.from(formSelectedFields),
                 sections: Array.from(formSelectedSections),
                 primaryField: document.getElementById('formPrimaryField').value || null,
                 primarySection: document.getElementById('formPrimarySection').value || null,
                 image: document.getElementById('formTopicImgUrl').value.trim(),
-                notes: currentEditingId ? topics.find(t => t.id === currentEditingId)?.notes || '' : '' // Preserve notes on edit
+                notes: currentEditingId ? topics.find(t => t.id === currentEditingId)?.notes || '' : '' 
             };
             topics = currentEditingId ? topics.map(t => t.id === currentEditingId ? tData : t) : [tData, ...topics];
-            await saveData(true, 'saveTopicBtn', 'Save Properties');
+            await saveData(true, 'saveTopicBtn', `<i data-lucide="save" class="icon-sm"></i> Save Properties`);
             topicFormModal.classList.remove('active');
         });
 
@@ -1275,10 +1433,105 @@
                 topicIds: Array.from(formSelectedTopicsForSource)
             };
             sources = currentEditingId ? sources.map(s => s.id === currentEditingId ? sData : s) : [sData, ...sources];
-            await saveData(true, 'saveSourceBtn', 'Save Source');
+            await saveData(true, 'saveSourceBtn', `<i data-lucide="save" class="icon-sm"></i> Save Source`);
             sourceFormModal.classList.remove('active');
             if (activeTopicInDetail) renderDetailTopicSources(activeTopicInDetail.id);
         });
+
+        // --- SMART CHIPS AUTOCOMPLETE (Appunti Testo) ---
+        const textarea = document.getElementById('detailTopicNotes');
+        const autocomplete = document.getElementById('topicAutocomplete');
+        let currentAutocompleteMatch = null;
+        let autocompleteIndex = -1;
+
+        textarea.addEventListener('input', () => {
+            const val = textarea.value;
+            const cursorPos = textarea.selectionStart;
+            const textBeforeCursor = val.substring(0, cursorPos);
+            const match = textBeforeCursor.match(/\[\[([^\]]*)$/);
+            
+            if (match) {
+                const query = match[1].toLowerCase();
+                currentAutocompleteMatch = { text: match[0], query: query, pos: cursorPos };
+                
+                const matches = topics.filter(t => t.title.toLowerCase().includes(query) && t.id !== activeTopicInDetail?.id).slice(0, 8);
+                
+                if (matches.length > 0) {
+                    autocompleteIndex = -1;
+                    autocomplete.innerHTML = matches.map((t, i) => `
+                        <div class="autocomplete-item" data-index="${i}" data-title="${t.title.replace(/'/g, "\\'")}">
+                            <i data-lucide="hash" class="icon-sm" style="color:var(--text-muted);"></i> ${t.title}
+                        </div>
+                    `).join('');
+                    autocomplete.style.display = 'block';
+                    lucide.createIcons();
+
+                    autocomplete.querySelectorAll('.autocomplete-item').forEach(item => {
+                        item.addEventListener('mousedown', (e) => {
+                            e.preventDefault(); // Prevents textarea from losing focus
+                            insertAutocompleteLink(item.getAttribute('data-title'));
+                        });
+                        item.addEventListener('mouseenter', () => {
+                            autocompleteIndex = parseInt(item.getAttribute('data-index'));
+                            updateAutocompleteHighlight();
+                        });
+                    });
+                } else {
+                    autocomplete.style.display = 'none';
+                }
+            } else {
+                autocomplete.style.display = 'none';
+                currentAutocompleteMatch = null;
+            }
+        });
+
+        textarea.addEventListener('keydown', (e) => {
+            if (autocomplete.style.display === 'block') {
+                const items = autocomplete.querySelectorAll('.autocomplete-item');
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    autocompleteIndex = (autocompleteIndex + 1) % items.length;
+                    updateAutocompleteHighlight(items);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    autocompleteIndex = (autocompleteIndex - 1 + items.length) % items.length;
+                    updateAutocompleteHighlight(items);
+                } else if (e.key === 'Enter' || e.key === 'Tab') {
+                    e.preventDefault();
+                    if (autocompleteIndex >= 0 && items[autocompleteIndex]) {
+                        insertAutocompleteLink(items[autocompleteIndex].getAttribute('data-title'));
+                    } else if (items.length > 0) {
+                        insertAutocompleteLink(items[0].getAttribute('data-title'));
+                    }
+                } else if (e.key === 'Escape') {
+                    autocomplete.style.display = 'none';
+                    currentAutocompleteMatch = null;
+                }
+            }
+        });
+
+        function updateAutocompleteHighlight() {
+            const items = autocomplete.querySelectorAll('.autocomplete-item');
+            items.forEach((item, i) => {
+                if (i === autocompleteIndex) item.classList.add('selected');
+                else item.classList.remove('selected');
+            });
+        }
+
+        function insertAutocompleteLink(title) {
+            if (!currentAutocompleteMatch) return;
+            const val = textarea.value;
+            const before = val.substring(0, currentAutocompleteMatch.pos - currentAutocompleteMatch.text.length);
+            const after = val.substring(textarea.selectionEnd);
+            
+            textarea.value = before + `[[${title}]] ` + after;
+            autocomplete.style.display = 'none';
+            currentAutocompleteMatch = null;
+            textarea.focus();
+            
+            const newPos = before.length + title.length + 5; // +5 per "[[", "]]", " "
+            textarea.setSelectionRange(newPos, newPos);
+        }
 
         // --- DETTAGLIO ARGOMENTO & LINKING & NOTES ---
         const topicDetailModal = document.getElementById('topicDetailModal');
@@ -1290,19 +1543,26 @@
                 topics = topics.map(t => t.id === activeTopicInDetail.id ? activeTopicInDetail : t);
                 
                 const btn = document.getElementById('saveNotesBtn');
-                btn.textContent = 'Saving...';
+                btn.innerHTML = '<span class="spinner"></span>';
                 btn.disabled = true;
-                await saveData(false); // don't full refresh UI, keep modal open smoothly
-                btn.textContent = 'Saved! ✓';
-                setTimeout(() => { btn.textContent = 'Save Notes'; btn.disabled = false; }, 2000);
+                await saveData(false); 
+                btn.innerHTML = '<i data-lucide="check" class="icon-xs"></i> Saved!';
+                lucide.createIcons();
+                setTimeout(() => { btn.innerHTML = '<i data-lucide="save" class="icon-xs"></i> Save Notes'; btn.disabled = false; lucide.createIcons(); }, 2000);
             }
         });
 
         function openTopicDetail(topic) {
             activeTopicInDetail = topic;
-            document.getElementById('detailTopicTitle').textContent = topic.title;
             
-            // Sort Fields: Primary first
+            let titlePrefix = '';
+            if (topic.parentId) {
+                const p = topics.find(x => x.id === topic.parentId);
+                if (p) titlePrefix = `<span style="font-size: 0.9rem; display: flex; align-items:center; gap:0.4rem; color: var(--text-muted); margin-bottom: 0.25rem;"><i data-lucide="corner-down-right" class="icon-sm"></i> Sub-topic of: ${p.title}</span>`;
+            }
+            
+            document.getElementById('detailTopicTitle').innerHTML = titlePrefix + topic.title;
+            
             const sortedFields = [...(topic.fields || [])].sort((a, b) => {
                 if (a === topic.primaryField) return -1;
                 if (b === topic.primaryField) return 1;
@@ -1310,11 +1570,10 @@
             });
             const fHtml = sortedFields.map(f => {
                 const isPrimary = f === topic.primaryField;
-                const starHTML = isPrimary ? '<span class="tag-primary-star" style="color:white; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5));">★</span>' : '';
+                const starHTML = isPrimary ? '<i data-lucide="star" class="icon-xs" style="color:white; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5));"></i>' : '';
                 return `<span class="tag tag-field" style="background:${getFieldColor(f)}" onclick="filterByTag('field', '${f.replace(/'/g, "\\'")}')">${starHTML}${f}</span>`;
             }).join('');
             
-            // Sort Sections: Primary first
             const sortedSections = [...(topic.sections || [])].sort((a, b) => {
                 if (a === topic.primarySection) return -1;
                 if (b === topic.primarySection) return 1;
@@ -1322,17 +1581,17 @@
             });
             const sHtml = sortedSections.map(s => {
                 const isPrimary = s === topic.primarySection;
-                const starHTML = isPrimary ? '<span class="tag-primary-star">★</span>' : '';
+                const starHTML = isPrimary ? '<i data-lucide="star" class="icon-xs"></i>' : '';
                 return `<span class="tag tag-section" style="${getSectionSegmentedBorder(s)}" onclick="filterByTag('section', '${s.replace(/'/g, "\\'")}')">${starHTML}${s}</span>`;
             }).join('');
             
             document.getElementById('detailTopicTags').innerHTML = fHtml + sHtml;
-            
             document.getElementById('detailTopicNotes').value = topic.notes || '';
-            
             document.getElementById('searchSourceInput').value = '';
+            
             renderDetailTopicSources(topic.id);
             topicDetailModal.classList.add('active');
+            lucide.createIcons();
         }
         document.getElementById('closeTopicModalBtn').addEventListener('click', () => { topicDetailModal.classList.remove('active'); activeTopicInDetail = null; });
 
@@ -1342,7 +1601,7 @@
             if (specificSources.length === 0) { cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem; font-weight:500;">No linked sources.</p>'; return; }
             cont.innerHTML = specificSources.map(s => {
                 const author = s.author ? `by ${s.author}` : ''; 
-                const link = s.url ? `<a href="${s.url}" target="_blank" style="color:var(--primary); font-size:0.875rem; font-weight:600;" onclick="event.stopPropagation();">Open</a>` : '';
+                const link = s.url ? `<a href="${s.url}" target="_blank" style="color:var(--primary); font-size:0.875rem; font-weight:600;" onclick="event.stopPropagation();"><i data-lucide="external-link" class="icon-xs"></i> Open</a>` : '';
                 return `
                 <div class="source-card" style="padding: 1rem; border-radius: 12px;">
                     <img src="${getSourceCover(s)}" class="source-cover-thumb" style="width: 45px; height: 45px;" onerror="this.src=getFallbackImageUrl('${s.title.replace(/'/g, "\\'")}')">
@@ -1352,10 +1611,11 @@
                     </div>
                     <div class="source-meta">
                         ${link}
-                        <button class="icon-btn" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="editSource('${s.id}'); event.stopPropagation();">✏️</button>
+                        <button class="icon-btn" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="editSource('${s.id}'); event.stopPropagation();"><i data-lucide="edit-2" class="icon-xs"></i></button>
                     </div>
                 </div>`;
             }).join('');
+            lucide.createIcons();
         }
 
         document.getElementById('linkExistingSourceBtn').addEventListener('click', async () => {
@@ -1369,7 +1629,8 @@
                     const btn = document.getElementById('linkExistingSourceBtn');
                     btn.disabled = true; btn.innerHTML = '...';
                     await saveData(false);
-                    btn.disabled = false; btn.innerHTML = 'Link';
+                    btn.disabled = false; btn.innerHTML = '<i data-lucide="link" class="icon-xs"></i> Link';
+                    lucide.createIcons();
                     
                     document.getElementById('searchSourceInput').value = ''; 
                     renderDetailTopicSources(activeTopicInDetail.id);
@@ -1384,7 +1645,9 @@
             if(!activeTopicInDetail) return; const t = activeTopicInDetail;
             topicDetailModal.classList.remove('active');
             currentEditingId = t.id;
+            
             document.getElementById('formTopicTitle').value = t.title;
+            populateParentTopicDropdown(t.id, t.parentId);
             
             document.getElementById('formTopicImgUrl').value = t.image || '';
             if (t.image) {
@@ -1474,10 +1737,26 @@
 
         function renderTopics() {
             const cont = document.getElementById('topicsContainer'); cont.innerHTML = '';
+            const term = document.getElementById('topicSearchInput').value.toLowerCase();
+            
+            // Toggle visibility UI updates
+            const clearBtn = document.getElementById('clearFiltersBtn');
+            const showSubtopics = document.getElementById('showSubtopicsFilter').checked;
+            
+            if (selectedFilterFields.size > 0 || selectedFilterSections.size > 0 || showSubtopics) {
+                clearBtn.style.display = 'inline-flex';
+            } else {
+                clearBtn.style.display = 'none';
+            }
+
             let filtered = topics.filter(t => {
+                if (t.parentId && !showSubtopics) return false;
+                
+                const matchTerm = !term || t.title.toLowerCase().includes(term);
                 const mf = selectedFilterFields.size === 0 || (t.fields || []).some(f => selectedFilterFields.has(f));
                 const ms = selectedFilterSections.size === 0 || (t.sections || []).some(s => selectedFilterSections.has(s));
-                return selectedFilterFields.size > 0 && selectedFilterSections.size > 0 ? mf && ms : mf; 
+                
+                return matchTerm && (selectedFilterFields.size > 0 && selectedFilterSections.size > 0 ? (mf && ms) : mf); 
             });
 
             if (filtered.length === 0) { cont.innerHTML = '<p style="color: var(--text-muted); font-weight: 500;">No topics found.</p>'; return; }
@@ -1508,13 +1787,19 @@
                 items.forEach(t => {
                     const card = document.createElement('div'); card.className = 'topic-card';
                     
+                    let parentBadge = '';
+                    if (t.parentId) {
+                        const p = topics.find(x => x.id === t.parentId);
+                        if (p) parentBadge = `<div class="topic-sub-badge"><i data-lucide="corner-down-right" style="width:12px; height:12px;"></i> Sub-topic of: ${p.title}</div>`;
+                    }
+                    
                     const sortedFields = [...(t.fields || [])].sort((a, b) => {
                         if (a === t.primaryField) return -1;
                         if (b === t.primaryField) return 1;
                         return 0;
                     });
                     const fTags = sortedFields.map(f => {
-                        const star = (f === t.primaryField) ? '<span class="tag-primary-star" style="color:white; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5));">★</span>' : '';
+                        const star = (f === t.primaryField) ? '<i data-lucide="star" class="icon-xs" style="color:white; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5));"></i>' : '';
                         return `<span class="tag tag-field" style="background:${getFieldColor(f)}" onclick="filterByTag('field', '${f.replace(/'/g, "\\'")}')">${star}${f}</span>`;
                     }).join('');
                     
@@ -1524,17 +1809,18 @@
                         return 0;
                     });
                     const sTags = sortedSections.map(s => {
-                        const star = (s === t.primarySection) ? '<span class="tag-primary-star">★</span>' : '';
+                        const star = (s === t.primarySection) ? '<i data-lucide="star" class="icon-xs"></i>' : '';
                         return `<span class="tag tag-section" style="${getSectionSegmentedBorder(s)}" onclick="filterByTag('section', '${s.replace(/'/g, "\\'")}')">${star}${s}</span>`;
                     }).join('');
                     
-                    card.innerHTML = `<img src="${t.image || getFallbackTopicCover(t)}" class="topic-image"><div class="topic-content"><h3 class="topic-title">${t.title}</h3><div class="tags" style="pointer-events: auto;">${fTags}${sTags}</div></div>`;
+                    card.innerHTML = `<img src="${t.image || getFallbackTopicCover(t)}" class="topic-image"><div class="topic-content">${parentBadge}<h3 class="topic-title">${t.title}</h3><div class="tags" style="pointer-events: auto;">${fTags}${sTags}</div></div>`;
                     card.onclick = (e) => {
-                        if (!e.target.classList.contains('tag') && !e.target.classList.contains('tag-primary-star')) openTopicDetail(t);
+                        if (!e.target.closest('.tag')) openTopicDetail(t);
                     };
                     cont.appendChild(card);
                 });
             }
+            lucide.createIcons();
         }
 
         function renderSourceFilters() {
@@ -1560,7 +1846,12 @@
 
         function renderSources() {
             const cont = document.getElementById('sourcesContainer'); cont.innerHTML = '';
-            let filtered = sources.filter(s => (selectedFilterSourceTypes.size === 0 || selectedFilterSourceTypes.has(s.type)) && (selectedFilterSourceStatuses.size === 0 || selectedFilterSourceStatuses.has(s.status || 'To Read')));
+            const term = document.getElementById('sourceSearchInput').value.toLowerCase();
+
+            let filtered = sources.filter(s => {
+                const matchTerm = !term || s.title.toLowerCase().includes(term) || (s.author && s.author.toLowerCase().includes(term));
+                return matchTerm && (selectedFilterSourceTypes.size === 0 || selectedFilterSourceTypes.has(s.type)) && (selectedFilterSourceStatuses.size === 0 || selectedFilterSourceStatuses.has(s.status || 'To Read'));
+            });
             
             if (filtered.length === 0) { cont.innerHTML = '<p style="color: var(--text-muted); font-weight: 500;">No sources found.</p>'; return; }
 
@@ -1588,7 +1879,7 @@
                 }
 
                 items.forEach(s => {
-                    let topicsTags = (s.topicIds || []).map(tid => { const t = topics.find(x => x.id === tid); return t ? `<span class="tag tag-source-link" onclick="openTopicDetail(topics.find(t=>t.id==='${tid}')); event.stopPropagation();">📚 ${t.title}</span>` : ''; }).join('');
+                    let topicsTags = (s.topicIds || []).map(tid => { const t = topics.find(x => x.id === tid); return t ? `<span class="tag tag-source-link" onclick="openTopicDetail(topics.find(t=>t.id==='${tid}')); event.stopPropagation();"><i data-lucide="library" class="icon-xs"></i> ${t.title}</span>` : ''; }).join('');
                     const card = document.createElement('div'); card.className = 'source-card';
                     card.innerHTML = `
                         <img src="${getSourceCover(s)}" class="source-cover-thumb" onerror="this.src=getFallbackImageUrl('${s.title.replace(/'/g, "\\'")}')">
@@ -1598,13 +1889,105 @@
                             <div class="tags" style="pointer-events: auto;"><span class="tag tag-field" style="background:var(--text-muted); color:white; border:none;" onclick="filterByTag('type','${s.type}')">${s.type}</span><span class="tag tag-status" onclick="filterByTag('status','${s.status||'To Read'}')">${s.status||'To Read'}</span>${topicsTags}</div>
                         </div>
                         <div class="source-meta">
-                            ${s.url ? `<a href="${s.url}" target="_blank" style="color:var(--primary); font-size:0.85rem; font-weight: 600;" onclick="event.stopPropagation();">Open Link</a>` : ''}
-                            <button class="icon-btn" style="padding:0.35rem 0.6rem; font-size:0.8rem;" onclick="editSource('${s.id}'); event.stopPropagation();">✏️ Edit</button>
+                            ${s.url ? `<a href="${s.url}" target="_blank" style="color:var(--primary); font-size:0.85rem; font-weight: 600; display:flex; align-items:center; gap:0.25rem;" onclick="event.stopPropagation();"><i data-lucide="external-link" class="icon-xs"></i> Open Link</a>` : ''}
+                            <button class="icon-btn" style="padding:0.35rem 0.6rem; font-size:0.8rem;" onclick="editSource('${s.id}'); event.stopPropagation();"><i data-lucide="edit-2" class="icon-xs"></i> Edit</button>
                         </div>`;
                     cont.appendChild(card);
                 });
             }
+            lucide.createIcons();
         }
+
+        // --- GRAPH VIEW (VIS-NETWORK) ---
+        window.renderGraph = function() {
+            if (typeof vis === 'undefined') return;
+            if (graphNetwork) {
+                graphNetwork.destroy();
+                graphNetwork = null;
+            }
+
+            const container = document.getElementById('graph-network-container');
+            const nodes = [];
+            const edges = [];
+            
+            // Map title to ID for markdown link parsing
+            const titleToId = {};
+            topics.forEach(t => { titleToId[t.title.toLowerCase()] = t.id; });
+
+            topics.forEach(t => {
+                const isSubtopic = !!t.parentId;
+                const primaryField = t.primaryField || (t.fields && t.fields.length > 0 ? t.fields[0] : null);
+                const color = primaryField ? getFieldColor(primaryField) : '#94a3b8';
+
+                // Node Creation
+                nodes.push({
+                    id: t.id,
+                    label: t.title,
+                    shape: isSubtopic ? 'dot' : 'dot',
+                    size: isSubtopic ? 12 : 24,
+                    color: {
+                        background: color,
+                        border: isSubtopic ? '#ffffff' : '#e2e8f0',
+                        highlight: { background: color, border: '#2563eb' },
+                        hover: { background: color, border: '#93c5fd' }
+                    },
+                    font: { size: isSubtopic ? 12 : 16, face: 'Inter', color: '#0f172a', bold: !isSubtopic },
+                    borderWidth: isSubtopic ? 2 : 3
+                });
+
+                // Parent-Child Implicit Edge
+                if (t.parentId) {
+                    edges.push({
+                        from: t.parentId,
+                        to: t.id,
+                        color: { color: '#cbd5e1', highlight: '#2563eb' },
+                        dashes: true,
+                        arrows: 'to',
+                        width: 1.5
+                    });
+                }
+
+                // Explicit Markdown Links in Notes [[Title]]
+                if (t.notes) {
+                    const regex = /\[\[(.*?)\]\]/g;
+                    let match;
+                    const linkedSet = new Set();
+                    while ((match = regex.exec(t.notes)) !== null) {
+                        const linkedTitle = match[1].toLowerCase().trim();
+                        if (titleToId[linkedTitle] && titleToId[linkedTitle] !== t.id && !linkedSet.has(titleToId[linkedTitle])) {
+                            linkedSet.add(titleToId[linkedTitle]);
+                            edges.push({
+                                from: t.id,
+                                to: titleToId[linkedTitle],
+                                color: { color: '#94a3b8', highlight: '#f59e0b' },
+                                arrows: 'to',
+                                width: 2
+                            });
+                        }
+                    }
+                }
+            });
+
+            const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+            const options = {
+                physics: { 
+                    barnesHut: { gravitationalConstant: -3000, centralGravity: 0.3, springLength: 150, springConstant: 0.04, damping: 0.09 },
+                    solver: 'barnesHut'
+                },
+                interaction: { hover: true, tooltipDelay: 200, zoomView: true },
+                edges: { smooth: { type: 'continuous' } }
+            };
+
+            graphNetwork = new vis.Network(container, data, options);
+
+            // Double Click to open topic
+            graphNetwork.on("doubleClick", function (params) {
+                if (params.nodes.length > 0) {
+                    const t = topics.find(x => x.id === params.nodes[0]);
+                    if (t) openTopicDetail(t);
+                }
+            });
+        };
 
         // View Toggles (Grid/List)
         document.getElementById('btn-grid').addEventListener('click', (e) => { e.target.classList.add('active'); document.getElementById('btn-list').classList.remove('active'); document.getElementById('topicsContainer').className = 'topics-container grid-view'; });
